@@ -28,6 +28,7 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <grpc.version>1.63.2</grpc.version> <!-- checked synced by VersionSyncCheckPlugin -->
     </properties>
     <dependencies>
         <dependency>
@@ -75,23 +76,65 @@
         </dependency>
 
 
-
+<!--        akka-->
+        <dependency>
+            <groupId>com.lightbend.akka.grpc</groupId>
+            <artifactId>akka-grpc-runtime_2.13</artifactId>
+            <version>2.5.0</version>
+        </dependency>
+        <!-- for loading of cert, issue #89 -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-testing</artifactId>
+            <version>1.63.2</version>
+<!--            <version>${grpc.version}</version>-->
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-compiler-plugin</artifactId>-->
-<!--                <configuration>-->
-<!--                    <annotationProcessorPaths>-->
-<!--                        <path>-->
-<!--                            <groupId>org.projectlombok</groupId>-->
-<!--                            <artifactId>lombok</artifactId>-->
-<!--                        </path>-->
-<!--                    </annotationProcessorPaths>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
+<!--            https://github.com/akka/akka-grpc/blob/v2.5.0/plugin-tester-java/pom.xml#L61-L119-->
+            <plugin>
+                <groupId>com.lightbend.akka.grpc</groupId>
+                <artifactId>akka-grpc-maven-plugin</artifactId>
+                <version>2.5.0</version>
+<!--                <version>${akka.grpc.project.version}</version>-->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <generatorSettings>
+                        <serverPowerApis>true</serverPowerApis>
+                    </generatorSettings>
+                    <includeStdTypes>true</includeStdTypes>
+                    <language>Java</language>
+                    <!--  #all-proto-paths -->
+                    <protoPaths>
+                        <protoPath>target/proto</protoPath>
+                        <protoPath>src/main/proto</protoPath>
+                        <protoPath>src/main/protobuf</protoPath>
+                    </protoPaths>
+                    <!--  #all-proto-paths -->
+                </configuration>
+            </plugin>
+<!--            padrão-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>21</release>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -115,6 +158,12 @@
                 <enabled>false</enabled>
             </releases>
         </repository>
+        <repository>
+            <id>akka-repository</id>
+            <name>Akka library repository</name>
+            <url>https://repo.akka.io/maven</url>
+        </repository>
+
     </repositories>
     <pluginRepositories>
         <pluginRepository>
@@ -124,6 +173,11 @@
             <releases>
                 <enabled>false</enabled>
             </releases>
+        </pluginRepository>
+        <pluginRepository>
+            <id>akka-repository</id>
+            <name>Akka library repository</name>
+            <url>https://repo.akka.io/maven</url>
         </pluginRepository>
     </pluginRepositories>
 
