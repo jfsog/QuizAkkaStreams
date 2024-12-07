@@ -1,0 +1,50 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option java_package = "org.jfsog.grpc_quiz.v1.quiz";
+
+package org.jfsog.quizakkastreams.v1.quiz;
+
+service gRPCLoginService{
+  rpc Login(stream UserLoginCredentials) returns (stream AuthenticationResponse);
+  rpc Register(stream UserRegisterRequest) returns (stream AuthenticationResponse);
+}
+service QuizService{
+  rpc PlayQuiz (stream QuizRequest) returns (stream QuizResponse);
+}
+message QuizRequest {
+  string userId = 1;
+  string questionId = 2;
+  string answer = 3; // Resposta enviada pelo usuário
+}
+
+message QuizResponse {
+  string questionId = 1;
+  bool feedback = 2; // Resposta correta ou incorreta
+  int32 points = 3;    // Pontos acumulados
+}
+message LoginToken{string token = 1;}
+
+message AuthenticationResponse {
+  AuthStatus status = 1;
+  string token = 2;
+  string message = 3;
+}
+message UserLoginCredentials{
+  string name = 1;
+  string password = 2;
+}
+message UserRegisterRequest{
+  string name = 1;
+  string password = 2;
+  UserRole role = 3;
+}
+
+enum UserRole{
+  USER = 0;
+  ADMIN = 1;
+}
+
+enum AuthStatus {
+  SUCCESS = 0;
+  FAILURE = 1;
+}

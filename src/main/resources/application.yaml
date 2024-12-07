@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: QuizAkkaStreams
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cachequizdb
+    username: cachequiz_user
+    password: ${DBPASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: postgresql
+  #    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      jedis:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 2
+      connect-timeout: 6000
+      url: jdbc:redis://localhost:6379/valkeycachequizdb
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+server:
+  port: 8080
+  http2:
+    enabled: true
+  ssl:
+    enabled: true
+    key-store: keystore.p12
+    key-store-password: ${SSL_PASSWORD} # Senha do keystore
+    key-store-type: PKCS12  # Tipo do keystore
+    key-alias: myalias  # Alias da chave no keystore

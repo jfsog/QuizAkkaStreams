@@ -1,0 +1,36 @@
+#https://github.com/redis-developer/redismod-docker-compose/blob/6be92293419441dc5c4d0abf1e9ba1a5a3247505/docker-compose.yml
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres-container
+    environment:
+      POSTGRES_USER: cachequiz_user
+      POSTGRES_PASSWORD: ${DBPASSWORD}
+      POSTGRES_DB: cachequizdb
+    ports:
+       - "5432:5432"
+    volumes:
+      - ${PWD}/data/postgres:/var/lib/postgresql/data
+  redis:
+    image: "valkey/valkey"
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redisdb:/data
+    entrypoint: >
+      valkey-server
+        --appendonly yes
+#        --loadmodule /usr/lib/redis/modules/redisgraph.so
+#        --loadmodule /usr/lib/redis/modules/redistimeseries.so
+#        --loadmodule /usr/lib/redis/modules/rejson.so
+#        --loadmodule /usr/lib/redis/modules/redisbloom.so
+#            --loadmodule /usr/lib/redis/modules/redisearch.so
+    #        --loadmodule /usr/lib/redis/modules/redisai.so
+    #        --loadmodule /var/opt/redislabs/lib/modules/redisgears.so
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["--requirepass", "${REDIS_PASSWORD}"]
