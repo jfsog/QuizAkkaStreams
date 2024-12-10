@@ -1,3 +1,6 @@
+#akka:
+#  http:
+#    idle-timeout: 0
 spring:
   application:
     name: QuizAkkaStreams
@@ -11,6 +14,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+#    open-in-view: true
   #    show-sql: true
   data:
     redis:
@@ -24,10 +28,12 @@ spring:
           min-idle: 2
       connect-timeout: 6000
       url: jdbc:redis://localhost:6379/valkeycachequizdb
+      username: valkey_user
+      database: 0
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 server:
-  port: 8080
+#  port: 8080
   http2:
     enabled: true
   ssl:
