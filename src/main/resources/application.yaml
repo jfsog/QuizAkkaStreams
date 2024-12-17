@@ -1,6 +1,6 @@
-#akka:
-#  http:
-#    idle-timeout: 0
+akka:
+  http:
+    idle-timeout: 0
 spring:
   application:
     name: QuizAkkaStreams

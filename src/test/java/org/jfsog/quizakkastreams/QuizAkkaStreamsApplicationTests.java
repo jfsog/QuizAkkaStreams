@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 
 @SpringBootTest
 class QuizAkkaStreamsApplicationTests {
+    public static final int COUNT = 50;
     @Autowired
     Argon2PasswordEncoder encoder;
     ActorSystem system1 = ActorSystem.create("GrpcClientSystem");
@@ -48,25 +49,26 @@ class QuizAkkaStreamsApplicationTests {
     }
     @Test
     void contextLoads() throws ExecutionException, InterruptedException, TimeoutException {
+        gRPCLoginServiceClient client = gRPCLoginServiceClient.create(settings1, system1);
         // Mensagens para enviar
 //        var l=generateSource(UserRegisterRequest::newBuilder, UserRegisterRequest.Builder::setName,)
         var bReq = UserRegisterRequest.newBuilder();
-        var reqList1 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_1", 1000);
-        var reqList2 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_2", 1000);
+        var reqList1 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_1", COUNT);
+        var reqList2 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_2", COUNT);
         var bLogin = UserLoginRequest.newBuilder();
-        var loginList1 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", 1000);
-        var loginList2 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", 1000);
+        var loginList1 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", COUNT);
+        var loginList2 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", COUNT);
         // Chamando o método gRPC
         Function<Source<UserRegisterRequest, NotUsed>, Source<AuthenticationResponse, NotUsed>> val
                 = v -> client1.register(v);
 //        CompletableFuture<Done> cf1 = createCompletable(client1::register, list1, system1);
 //        CompletableFuture<Done> cf2 = createCompletable(client2::register, list2, system2);
-        CompletableFuture<Done> cf1 = createCompletable(client1::login, loginList1, system1);
-        CompletableFuture<Done> cf2 = createCompletable(client2::login, loginList2, system2);
-        CompletableFuture<Done> regCf_1 = createCompletable(client1::register, reqList1, system1);
-        CompletableFuture<Done> regCf_2 = createCompletable(client2::register, reqList2, system2);
+//        CompletableFuture<Done> cf1 = createCompletable(client1::login, loginList1,AuthenticationResponse::getMessage, system1);
+//        CompletableFuture<Done> cf2 = createCompletable(client2::login, loginList2,AuthenticationResponse::getMessage, system2);
+        CompletableFuture<Done> regCf_1 = createCompletable(client1::register, reqList1,AuthenticationResponse::getMessage, system1);
+        CompletableFuture<Done> regCf_2 = createCompletable(client2::register, reqList2,AuthenticationResponse::getMessage, system2);
         var antes = Instant.now();
-        CompletableFuture.allOf(regCf_1,regCf_2).get();
+        CompletableFuture.allOf(regCf_1, regCf_2).get();
 //        CompletableFuture.allOf(cf1, cf2).get();
         var depois = Instant.now();
         System.out.println("Tempo total =" + depois.minusMillis(antes.toEpochMilli()).toEpochMilli());
@@ -76,7 +78,13 @@ class QuizAkkaStreamsApplicationTests {
     }
     private <E, T> CompletableFuture<Done> createCompletable(Function<Source<T, NotUsed>, Source<E, NotUsed>> function,
                                                              Source<T, NotUsed> source,
+                                                             Function<E, String> getmessage,
                                                              ActorSystem system) {
-        return function.apply(source).async().run(system).toCompletableFuture();
+        var t = function.apply(source)
+                        .async()
+                        .runForeach(e -> System.out.println("Response: " + getmessage.apply(e)), system)
+                        .toCompletableFuture();
+//        return function.apply(source).async().runForeach(()->{},system).toCompletableFuture();
+        return t;
     }
 }
