@@ -64,11 +64,6 @@ public class BiscuitTokenService {
         } catch (Error | NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
             e.printStackTrace(System.out);
             return false;
-//            throw new RuntimeException(e);
         }
-    }
-    @PreDestroy
-    private void cleanUp() {
-        redisson.getKeys().flushdbParallel();
     }
 }

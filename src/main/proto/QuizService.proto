@@ -8,13 +8,24 @@ service gRPCLoginService{
   rpc Login(stream UserLoginRequest) returns (stream AuthenticationResponse);
   rpc Register(stream UserRegisterRequest) returns (stream AuthenticationResponse);
 }
-service QuizService{
+service gRPCQuizService{
   rpc PlayQuiz (stream QuizRequest) returns (stream QuizResponse);
+  rpc QuizScore(UserCredentials) returns (QuizSummaryResponse);
+}
+message UserCredentials{
+  string userName = 1;
+  string token  = 2;
+}
+message QuizSummaryResponse {
+  int32 totalQuestions = 1; // Total de questões enviadas
+  int32 correctAnswers = 2; // Total de respostas corretas
+  int64 totalPoints = 3;    // Pontos acumulados
 }
 message QuizRequest {
   string userId = 1;
   string questionId = 2;
   string answer = 3; // Resposta enviada pelo usuário
+  string token =4;
 }
 
 message QuizResponse {
@@ -22,7 +33,6 @@ message QuizResponse {
   bool feedback = 2; // Resposta correta ou incorreta
   int32 points = 3;    // Pontos acumulados
 }
-message LoginToken{string token = 1;}
 
 message AuthenticationResponse {
   AuthStatus status = 1;

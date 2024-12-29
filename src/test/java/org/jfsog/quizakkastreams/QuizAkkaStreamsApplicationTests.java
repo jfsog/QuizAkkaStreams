@@ -5,10 +5,12 @@ import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.grpc.GrpcClientSettings;
 import akka.stream.javadsl.Source;
+import io.vavr.collection.Stream;
 import org.jfsog.grpc_quiz.v1.quiz.AuthenticationResponse;
 import org.jfsog.grpc_quiz.v1.quiz.UserLoginRequest;
 import org.jfsog.grpc_quiz.v1.quiz.UserRegisterRequest;
 import org.jfsog.grpc_quiz.v1.quiz.gRPCLoginServiceClient;
+import org.jfsog.quizakkastreams.Repository.UsersRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,74 +19,113 @@ import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 @SpringBootTest
 class QuizAkkaStreamsApplicationTests {
-    public static final int COUNT = 50;
-    @Autowired
-    Argon2PasswordEncoder encoder;
+    public static final int COUNT = 100000;
+    //Criação de 2 sistemas de atores
     ActorSystem system1 = ActorSystem.create("GrpcClientSystem");
     ActorSystem system2 = ActorSystem.create("GrpcClientSystem2");
-    // Configurações do cliente gRPC
+    // Configurações do cliente gRPC para cada sistema
     GrpcClientSettings settings1 = GrpcClientSettings.connectToServiceAt("localhost", 9090, system1).withTls(false);
-    // Criação do stub do cliente
+    // Criação dos clientes
     gRPCLoginServiceClient client1 = gRPCLoginServiceClient.create(settings1, system1);
     GrpcClientSettings settings2 = GrpcClientSettings.connectToServiceAt("localhost", 9090, system2).withTls(false);
     gRPCLoginServiceClient client2 = gRPCLoginServiceClient.create(settings2, system2);
     @Autowired
-    private org.jfsog.grpc_quiz.v1.quiz.gRPCLoginServicePowerApi gRPCLoginServicePowerApi;
-    private <T, E> Source<E, NotUsed> generateSource(Supplier<E> build,
-                                                     Function<String, T> setname,
-                                                     Function<String, T> setPassword,
-                                                     String prefix,
-                                                     int count) {
-        return Source.range(1, count).async().map(i -> {
-            setname.apply(prefix + "user__" + i);
-            setPassword.apply(prefix + "pass__" + i);
-            return build.get();
-        });
-    }
+    private Argon2PasswordEncoder encoder;
+    @Autowired
+    private UsersRepository usersRepository;
     @Test
-    void contextLoads() throws ExecutionException, InterruptedException, TimeoutException {
-        gRPCLoginServiceClient client = gRPCLoginServiceClient.create(settings1, system1);
-        // Mensagens para enviar
-//        var l=generateSource(UserRegisterRequest::newBuilder, UserRegisterRequest.Builder::setName,)
-        var bReq = UserRegisterRequest.newBuilder();
-        var reqList1 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_1", COUNT);
-        var reqList2 = generateSource(bReq::build, bReq::setName, bReq::setPassword, "t_2", COUNT);
-        var bLogin = UserLoginRequest.newBuilder();
-        var loginList1 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", COUNT);
-        var loginList2 = generateSource(bLogin::build, bLogin::setName, bLogin::setPassword, "t_2", COUNT);
-        // Chamando o método gRPC
-        Function<Source<UserRegisterRequest, NotUsed>, Source<AuthenticationResponse, NotUsed>> val
-                = v -> client1.register(v);
-//        CompletableFuture<Done> cf1 = createCompletable(client1::register, list1, system1);
-//        CompletableFuture<Done> cf2 = createCompletable(client2::register, list2, system2);
-//        CompletableFuture<Done> cf1 = createCompletable(client1::login, loginList1,AuthenticationResponse::getMessage, system1);
-//        CompletableFuture<Done> cf2 = createCompletable(client2::login, loginList2,AuthenticationResponse::getMessage, system2);
-        CompletableFuture<Done> regCf_1 = createCompletable(client1::register, reqList1,AuthenticationResponse::getMessage, system1);
-        CompletableFuture<Done> regCf_2 = createCompletable(client2::register, reqList2,AuthenticationResponse::getMessage, system2);
+    void testTimeToEncode() {
+        var stream = Stream.range(0, COUNT * 2).map(l -> "t_1" + "pass_" + l).toJavaParallelStream();
         var antes = Instant.now();
-        CompletableFuture.allOf(regCf_1, regCf_2).get();
-//        CompletableFuture.allOf(cf1, cf2).get();
+        stream.forEach(s -> encoder.encode(s));
         var depois = Instant.now();
         System.out.println("Tempo total =" + depois.minusMillis(antes.toEpochMilli()).toEpochMilli());
-        // Finalizando o sistema
-        system1.terminate();
-        system2.terminate();
     }
-    private <E, T> CompletableFuture<Done> createCompletable(Function<Source<T, NotUsed>, Source<E, NotUsed>> function,
-                                                             Source<T, NotUsed> source,
-                                                             Function<E, String> getmessage,
+    @Test
+    void testUserLoginLoad() throws ExecutionException, InterruptedException {
+        // Login de usuários usando os dois clientes em paralelo.
+        Source<UserLoginRequest, NotUsed> requestl1 = generate(COUNT, "t_1", UserLoginRequest.newBuilder(),
+                UserLoginRequest.Builder::build, UserLoginRequest.Builder::setName,
+                UserLoginRequest.Builder::setPassword);
+        Source<UserLoginRequest, NotUsed> requestl2 = generate(COUNT, "t_1", UserLoginRequest.newBuilder(),
+                UserLoginRequest.Builder::build, UserLoginRequest.Builder::setName,
+                UserLoginRequest.Builder::setPassword);
+        CompletableFuture<Done> loginCf_1 = runReactiveStream(client1::login, requestl1,
+                AuthenticationResponse::toString, system1);
+        CompletableFuture<Done> loginCf_2 = runReactiveStream(client2::login, requestl2,
+                AuthenticationResponse::toString, system1);
+        var antes = Instant.now();
+        CompletableFuture.allOf(loginCf_1, loginCf_2).get();
+        var depois = Instant.now();
+        System.out.println("Tempo total = " + depois.minusMillis(antes.toEpochMilli()).toEpochMilli());
+    }
+    @Test
+    void testeIO() {
+        Stream.continually("Teste nosso de io").forEach(System.out::println);
+    }
+    @Test
+    void testUserRegistrationLoad() throws ExecutionException, InterruptedException {
+        // Registro de usuários usando os dois clientes em paralelo.
+        var requestList1 = generateRequests(COUNT, "t_1");
+        var requestList2 = generateRequests(COUNT, "t_2");
+        // Registro de usuários usando os dois clientes em paralelo.
+        CompletableFuture<Done> regCf_1 = runReactiveStream(client1::register, requestList1,
+                AuthenticationResponse::getMessage, system1);
+        CompletableFuture<Done> regCf_2 = runReactiveStream(client2::register, requestList2,
+                AuthenticationResponse::getMessage, system2);
+        var antes = Instant.now();
+        CompletableFuture.allOf(regCf_1, regCf_2).get();
+        var depois = Instant.now();
+        System.out.println("Tempo total =" + depois.minusMillis(antes.toEpochMilli()).toEpochMilli());
+        var count = usersRepository.count();
+        System.out.println("Users total =" + count);
+    }
+    private <E, T> Source<T, NotUsed> generate(int count, String prefix, E builder, Function<E, T> build,
+                                               BiConsumer<E, String> setName, BiConsumer<E, String> setPassword) {
+        return Source.range(0, count).map(i -> {
+            setName.accept(builder, "%suser__%d".formatted(prefix, i));
+            setPassword.accept(builder, "%spass__%d".formatted(prefix, i));
+            var temp = build.apply(builder);
+            System.out.println(temp);
+            return temp;
+        });
+    }
+    /**
+     * Gera uma fonte reativa de requisições de registro de usuário.
+     *
+     * @param count  Número de requisições a serem geradas.
+     * @param prefix Prefixo para os nomes de usuário e senhas.
+     * @return Fonte reativa de requisições de registro.
+     */
+    private Source<UserRegisterRequest, NotUsed> generateRequests(int count, String prefix) {
+        return Source.range(0, count)
+                     .map(i -> UserRegisterRequest.newBuilder()
+                                                  .setName("%suser__%d".formatted(prefix, i))
+                                                  .setPassword("%spass__%d".formatted(prefix, i))
+                                                  .build());
+    }
+    /**
+     * Executa uma função assíncrona para processar uma fonte reativa e retorna um CompletableFuture.
+     *
+     * @param <E>        Tipo da saída do processamento.
+     * @param <T>        Tipo dos elementos na fonte de entrada.
+     * @param function   Função que processa a fonte de entrada.
+     * @param source     Fonte de entrada.
+     * @param getMessage Função para extrair mensagens de resposta.
+     * @param system     Sistema de ator a ser usado.
+     * @return CompletableFuture representando a conclusão do processamento.
+     */
+    private <E, T> CompletableFuture<Done> runReactiveStream(Function<Source<T, NotUsed>, Source<E, NotUsed>> function,
+                                                             Source<T, NotUsed> source, Function<E, String> getMessage,
                                                              ActorSystem system) {
-        var t = function.apply(source)
-                        .async()
-                        .runForeach(e -> System.out.println("Response: " + getmessage.apply(e)), system)
-                        .toCompletableFuture();
-//        return function.apply(source).async().runForeach(()->{},system).toCompletableFuture();
-        return t;
+        return function.apply(source)
+                       .runForeach(e -> System.out.printf("Response: %s%n", getMessage.apply(e)), system)
+                       .whenComplete((done, e) -> system.terminate())
+                       .toCompletableFuture();
     }
 }
