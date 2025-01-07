@@ -40,11 +40,12 @@ class QuizAkkaStreamsApplicationTests {
     private UsersRepository usersRepository;
     @Test
     void testTimeToEncode() {
-        var stream = Stream.range(0, COUNT * 2).map(l -> "t_1" + "pass_" + l).toJavaParallelStream();
+        var stream = Stream.rangeClosed(1, COUNT).map(l -> "t_1" + "pass_" + l).toJavaParallelStream();
         var antes = Instant.now();
         stream.forEach(s -> encoder.encode(s));
         var depois = Instant.now();
         System.out.println("Tempo total =" + depois.minusMillis(antes.toEpochMilli()).toEpochMilli());
+        System.out.println("Total de codificações : " + COUNT);
     }
     @Test
     void testUserLoginLoad() throws ExecutionException, InterruptedException {
@@ -71,8 +72,14 @@ class QuizAkkaStreamsApplicationTests {
     @Test
     void testUserRegistrationLoad() throws ExecutionException, InterruptedException {
         // Registro de usuários usando os dois clientes em paralelo.
-        var requestList1 = generateRequests(COUNT, "t_1");
-        var requestList2 = generateRequests(COUNT, "t_2");
+//        var requestList1 = generateRequests(COUNT, "t_1");
+//        var requestList2 = generateRequests(COUNT, "t_2");
+        Source<UserRegisterRequest, NotUsed> requestList1 = generate(COUNT, "t_1", UserRegisterRequest.newBuilder(),
+                UserRegisterRequest.Builder::build, UserRegisterRequest.Builder::setName,
+                UserRegisterRequest.Builder::setPassword);
+        Source<UserRegisterRequest, NotUsed> requestList2 = generate(COUNT, "t_2", UserRegisterRequest.newBuilder(),
+                UserRegisterRequest.Builder::build, UserRegisterRequest.Builder::setName,
+                UserRegisterRequest.Builder::setPassword);
         // Registro de usuários usando os dois clientes em paralelo.
         CompletableFuture<Done> regCf_1 = runReactiveStream(client1::register, requestList1,
                 AuthenticationResponse::getMessage, system1);
@@ -87,25 +94,11 @@ class QuizAkkaStreamsApplicationTests {
     }
     private <E, T> Source<T, NotUsed> generate(int count, String prefix, E builder, Function<E, T> build,
                                                BiConsumer<E, String> setName, BiConsumer<E, String> setPassword) {
-        return Source.range(0, count).map(i -> {
+        return Source.range(1, count ).map(i -> {
             setName.accept(builder, "%suser__%d".formatted(prefix, i));
             setPassword.accept(builder, "%spass__%d".formatted(prefix, i));
             return build.apply(builder);
         });
-    }
-    /**
-     * Gera uma fonte reativa de requisições de registro de usuário.
-     *
-     * @param count  Número de requisições a serem geradas.
-     * @param prefix Prefixo para os nomes de usuário e senhas.
-     * @return Fonte reativa de requisições de registro.
-     */
-    private Source<UserRegisterRequest, NotUsed> generateRequests(int count, String prefix) {
-        return Source.range(0, count)
-                     .map(i -> UserRegisterRequest.newBuilder()
-                                                  .setName("%suser__%d".formatted(prefix, i))
-                                                  .setPassword("%spass__%d".formatted(prefix, i))
-                                                  .build());
     }
     /**
      * Executa uma função assíncrona para processar uma fonte reativa e retorna um CompletableFuture.
@@ -122,9 +115,8 @@ class QuizAkkaStreamsApplicationTests {
                                                              Source<T, NotUsed> source, Function<E, String> getMessage,
                                                              ActorSystem system) {
         return function.apply(source)
-                       .runForeach(e -> System.out.printf("Response: %s%n", getMessage.apply(e)), system)
-                       .whenComplete((done, e) -> system.terminate())
-                       .toCompletableFuture();
+//                       .runForeach(e -> System.out.printf("Response: %s%n", getMessage.apply(e)), system)
+                       .runForeach(e -> {}, system)
+                       .whenComplete((done, e) -> system.terminate()).toCompletableFuture();
     }
-
 }

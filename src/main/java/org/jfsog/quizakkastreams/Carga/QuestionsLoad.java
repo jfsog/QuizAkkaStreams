@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor(onConstructor = @__(@Autowired))
 public class QuestionsLoad {
     private PerguntaRepository perguntaRepository;
-    @PostConstruct
+//    @PostConstruct
     public void load() {
         int alternativas = 5;
         var m2 = Stream.rangeClosed(1, 100)
