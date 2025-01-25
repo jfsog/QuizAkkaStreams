@@ -21,7 +21,7 @@ public class Pergunta {
     private Long id;
     //@lob
     @NotNull(message = "O texto da pergunta não pode ser nulo.")
-    @Column(unique = true)
+//    @Column(unique = true)
     private String enunciado;
     @ElementCollection(fetch = FetchType.EAGER)
     @Size(min = 2, max = 5, message = "A questão deve ter entre duas e cinco alternativas.")

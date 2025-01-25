@@ -1,0 +1,26 @@
+syntax = "proto3";
+import "Enums.proto";
+option java_multiple_files = true;
+option java_package = "org.jfsog.grpc_quiz.v1.quiz";
+
+package org.jfsog.grpc_quiz.v1.quiz;
+/// Mensagens
+message UserLoginRequest {
+  string user_name = 1;  // Nome de usuário
+  string password = 2;   // Senha
+}
+message AuthenticationResponse {
+  AuthStatus status = 1; // Status da autenticação
+  string token = 2;      // Token de autenticação
+  string message = 3;    // Mensagem de status
+}
+message UserRegisterRequest {
+  string user_name = 1;  // Nome de usuário
+  string password = 2;   // Senha
+  UserRole role = 3;     // Tipo de usuário
+}
+// Serviços
+service gRPCLoginService {
+  rpc Login(UserLoginRequest) returns (AuthenticationResponse);       // Serviço para autenticar usuários
+  rpc Register(UserRegisterRequest) returns (AuthenticationResponse); // Serviço para registrar novos usuários
+}

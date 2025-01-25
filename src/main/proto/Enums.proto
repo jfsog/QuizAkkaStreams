@@ -1,0 +1,14 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option java_package = "org.jfsog.grpc_quiz.v1.quiz";
+
+package org.jfsog.grpc_quiz.v1.quiz;
+// Enumerações
+enum UserRole {
+  USER = 0;   // Usuário comum
+  ADMIN = 1;  // Administrador
+}
+enum AuthStatus {
+  SUCCESS = 0; // Autenticação bem-sucedida
+  FAILURE = 1; // Autenticação falhou
+}

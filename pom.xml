@@ -137,7 +137,6 @@
                 <groupId>com.lightbend.akka.grpc</groupId>
                 <artifactId>akka-grpc-maven-plugin</artifactId>
                 <version>2.5.0</version>
-<!--                <version>${akka.grpc.project.version}</version>-->
                 <executions>
                     <execution>
                         <goals>

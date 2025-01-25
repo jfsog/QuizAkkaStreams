@@ -42,10 +42,10 @@ public class CacheServiceValkey {
     }
     public String getUserToken(Users user) {
         var map = getUserTokensCache();
-        var token=map.get(user.getLogin());
-        if(token==null) {
-            token=biscuitTokenService.createUserToken(user);
-            map.put(user.getLogin(),token);
+        var token = map.get(user.getLogin());
+        if (token == null) {
+            token = biscuitTokenService.createUserToken(user);
+            map.put(user.getLogin(), token);
         }
         return token;
     }
@@ -67,17 +67,7 @@ public class CacheServiceValkey {
             return u;
         });
     }
-    /// método auxiliar usado para testar carga
-    @Scheduled(fixedRate = 5000)
-    protected void reajustarCache() {
-        var user = usersRepository.findByLogin("12345678");
-        if (user != null) {
-            usersRepository.delete(user);
-            cleanUp();
-            InitCollections();
-            log.info("Limpeza feita, pode testar!");
-        }
-    }
+
     @PreDestroy
     private void cleanUp() {
         redisson.getKeys().flushall();

@@ -8,12 +8,9 @@ import akka.stream.javadsl.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jfsog.grpc_quiz.v1.quiz.AuthenticationResponse;
-import org.jfsog.grpc_quiz.v1.quiz.UserLoginRequest;
-import org.jfsog.grpc_quiz.v1.quiz.UserRegisterRequest;
+import org.jfsog.grpc_quiz.v1.quiz.*;
 import org.jfsog.grpc_quiz.v1.quiz.gRPCLoginService;
 import org.jfsog.quizakkastreams.Biscuit.BiscuitTokenService;
-import org.jfsog.quizakkastreams.Models.Pergunta.Pergunta;
 import org.jfsog.quizakkastreams.Models.User.Users;
 import org.redisson.api.RLock;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +18,7 @@ import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import static org.jfsog.grpc_quiz.v1.quiz.AuthStatus.FAILURE_VALUE;
 import static org.jfsog.grpc_quiz.v1.quiz.AuthStatus.SUCCESS_VALUE;
@@ -32,25 +30,24 @@ public class QuizLoginService implements gRPCLoginService {
     private final CacheServiceValkey cacheService;
     private BiscuitTokenService tokenService;
     private Argon2PasswordEncoder passwordEncoder;
-    @Override
-    public Source<AuthenticationResponse, NotUsed> login(Source<UserLoginRequest, NotUsed> in) {
-        int paralelismo = 16;
-        var p=new Pergunta(1L,"",null,"","math");
-
-        var flow = Flow.of(UserLoginRequest.class)
-                       .mapAsync(paralelismo, r -> CompletableFuture.completedFuture(authenticateUser(r)));
-        return in.via(Flow.fromGraph(GraphDSL.create(b -> {
-            UniformFanOutShape<UserLoginRequest, UserLoginRequest> balance = b.add(Balance.create(paralelismo));
-            UniformFanInShape<AuthenticationResponse, AuthenticationResponse> merge = b.add(Merge.create(paralelismo));
-            for (int i = 0; i < paralelismo; i++) {
-                b.from(balance.out(i)).via(b.add(flow.async())).toInlet(merge.in(i));
-            }
-            return new FlowShape<>(balance.in(), merge.out() );
-        })));
-    }
+//    @Override
+//    public Source<AuthenticationResponse, NotUsed> login(Source<UserLoginRequest, NotUsed> in) {
+//        int paralelismo = 16;
+//        var flow = Flow.of(UserLoginRequest.class)
+//                       .mapAsync(paralelismo, r -> CompletableFuture.completedFuture(authenticateUser(r)));
+//        return in.via(Flow.fromGraph(GraphDSL.create(b -> {
+//            UniformFanOutShape<UserLoginRequest, UserLoginRequest> balance = b.add(Balance.create(paralelismo));
+//            UniformFanInShape<AuthenticationResponse, AuthenticationResponse> merge = b.add(
+//                    Merge.create(paralelismo));
+//            for (int i = 0; i < paralelismo; i++) {
+//                b.from(balance.out(i)).via(b.add(flow.async())).toInlet(merge.in(i));
+//            }
+//            return new FlowShape<>(balance.in(), merge.out());
+//        })));
+//    }
     private AuthenticationResponse authenticateUser(UserLoginRequest credentials) {
         try {
-            var user = cacheService.findByLogin(credentials.getName());
+            var user = cacheService.findByLogin(credentials.getUserName());
             var builder = AuthenticationResponse.newBuilder();
             if (user != null && passwordEncoder.matches(credentials.getPassword(), user.getPassword())) {
                 builder.setMessage("Login bem-sucedido!")
@@ -65,24 +62,24 @@ public class QuizLoginService implements gRPCLoginService {
             throw new RuntimeException(e);
         }
     }
-    @Override
-    public Source<AuthenticationResponse, NotUsed> register(Source<UserRegisterRequest, NotUsed> in) {
-        int paralelismo = 16;
-        var flow = Flow.of(UserRegisterRequest.class)
-                       //simulando um cenário de baixa capacidade de processamento, evitando sobrecarga
-//                       .throttle(2, Duration.ofSeconds(5))
-                       .mapAsyncUnordered(paralelismo, r -> CompletableFuture.completedFuture(processRequest(r)));
-        //distribuição e controle de concorrência
-        return in.via(Flow.fromGraph(GraphDSL.create(b -> {
-            UniformFanOutShape<UserRegisterRequest, UserRegisterRequest> balance = b.add(Balance.create(paralelismo));
-            UniformFanInShape<AuthenticationResponse, AuthenticationResponse> merge = b.add(Merge.create(paralelismo));
-            for (int i = 0; i < paralelismo; i++)
-                b.from(balance.out(i)).via(b.add(flow.async())).toInlet(merge.in(i));
-            return new FlowShape<>(balance.in(), merge.out());
-        })));
-    }
+//    @Override
+//    public Source<AuthenticationResponse, NotUsed> register(Source<UserRegisterRequest, NotUsed> in) {
+//        int paralelismo = 16;
+//        var flow = Flow.of(UserRegisterRequest.class)
+//                       //simulando um cenário de baixa capacidade de processamento, evitando sobrecarga
+////                       .throttle(2, Duration.ofSeconds(5))
+//                       .mapAsyncUnordered(paralelismo, r -> CompletableFuture.completedFuture(processRequest(r)));
+//        //distribuição e controle de concorrência
+//        return in.via(Flow.fromGraph(GraphDSL.create(b -> {
+//            UniformFanOutShape<UserRegisterRequest, UserRegisterRequest> balance = b.add(Balance.create(paralelismo));
+//            UniformFanInShape<AuthenticationResponse, AuthenticationResponse> merge = b.add(Merge.create(paralelismo));
+//            for (int i = 0; i < paralelismo; i++)
+//                b.from(balance.out(i)).via(b.add(flow.async())).toInlet(merge.in(i));
+//            return new FlowShape<>(balance.in(), merge.out());
+//        })));
+//    }
     private AuthenticationResponse processRequest(UserRegisterRequest request) {
-        var name = request.getName();
+        var name = request.getUserName();
         // uso de lock para garantir que apenas uma thread consiga tentar registrar usuário
         RLock lock = cacheService.getUserLock(name);
         try {
@@ -103,7 +100,7 @@ public class QuizLoginService implements gRPCLoginService {
         }
     }
     private void validateRegistrationRequest(@NotNull UserRegisterRequest request) throws IllegalArgumentException {
-        if (request.getName().isBlank()) {
+        if (request.getUserName().isBlank()) {
             throw new IllegalArgumentException("Nome do usuário não pode ser nulo");
         }
         if (request.getPassword().length() < 8) {
@@ -112,14 +109,14 @@ public class QuizLoginService implements gRPCLoginService {
     }
     private AuthenticationResponse createDuplicateUserResponse(UserRegisterRequest request) {
         return AuthenticationResponse.newBuilder()
-                                     .setMessage("Usuário %s já existe! em %s".formatted(request.getName(),
+                                     .setMessage("Usuário %s já existe! em %s".formatted(request.getUserName(),
                                              Thread.currentThread().getName()))
                                      .setStatusValue(FAILURE_VALUE)
                                      .build();
     }
     private Users createNewUser(UserRegisterRequest request) {
         String encodedPassword = passwordEncoder.encode(request.getPassword());
-        return new Users(request.getName(), encodedPassword, request.getRole());
+        return new Users(request.getUserName(), encodedPassword, request.getRole());
     }
     private AuthenticationResponse createSuccessRegistrationResponse(Users user) {
         return AuthenticationResponse.newBuilder()
@@ -134,5 +131,13 @@ public class QuizLoginService implements gRPCLoginService {
                                      .setMessage("User failed: %s:%s".formatted(request, message))
                                      .setStatusValue(FAILURE_VALUE)
                                      .build();
+    }
+    @Override
+    public CompletionStage<AuthenticationResponse> login(UserLoginRequest in) {
+        return CompletableFuture.completedStage(authenticateUser(in));
+    }
+    @Override
+    public CompletionStage<AuthenticationResponse> register(UserRegisterRequest in) {
+        return CompletableFuture.completedFuture(processRequest(in));
     }
 }

@@ -1,26 +1,26 @@
 package org.jfsog.quizakkastreams.Biscuit;
 
 import io.vavr.control.Try;
-import jakarta.annotation.PreDestroy;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.biscuitsec.biscuit.crypto.KeyPair;
+import org.biscuitsec.biscuit.datalog.RunLimits;
 import org.biscuitsec.biscuit.error.Error;
 import org.biscuitsec.biscuit.token.Biscuit;
 import org.jfsog.quizakkastreams.Models.User.Users;
-import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
+import java.time.Duration;
 import java.time.Instant;
 
 @Service
 @Slf4j
 public class BiscuitTokenService {
     private static final KeyPair root = new KeyPair();
-    private final RedissonClient redisson;
-    public BiscuitTokenService(RedissonClient redisson) {this.redisson = redisson;}
+    private static final RunLimits runLimits = new RunLimits(1000, 100, Duration.ofSeconds(1));
     public String createUserToken(Users user) {
         try {
             var futuretime = Instant.now().plusSeconds(30).toEpochMilli();
@@ -35,11 +35,7 @@ public class BiscuitTokenService {
             throw new RuntimeException("Erro ao criar login Biscuit", e);
         }
     }
-    //    implementar validações mais complexas
-    /*adicionar mais um parâmetro de string variável para validar
-        aplicar composição de facts
-    * */
-    public boolean validarToken(String b64Token, String... customChecks) {
+    public boolean validarToken(@NonNull String b64Token, String... customChecks) {
         try {
             var now = Instant.now().toEpochMilli();
             var b = Biscuit.from_b64url(b64Token, root.public_key())
@@ -49,7 +45,7 @@ public class BiscuitTokenService {
                            .add_check("check if expiration($0), $0 > %s ".formatted(now));
             for (var s : customChecks)
                 b.add_check(s);
-            var code = b.allow().authorize();
+            var code = b.allow().authorize(runLimits);
             if (code == null) {
                 return false;
             }
@@ -58,11 +54,8 @@ public class BiscuitTokenService {
             }
             log.info("Non zero value?: {}", code);
             return true;
-        } catch (Error.FailedLogic e) {
-            e.printStackTrace(System.out);
-            return false;
         } catch (Error | NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
-            e.printStackTrace(System.out);
+            log.warn(e.getMessage());
             return false;
         }
     }

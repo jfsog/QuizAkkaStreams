@@ -1,60 +1,36 @@
 syntax = "proto3";
+import "Enums.proto";
 option java_multiple_files = true;
 option java_package = "org.jfsog.grpc_quiz.v1.quiz";
 
-package org.jfsog.quizakkastreams.v1.quiz;
-
-service gRPCLoginService{
-  rpc Login(stream UserLoginRequest) returns (stream AuthenticationResponse);
-  rpc Register(stream UserRegisterRequest) returns (stream AuthenticationResponse);
-}
-service gRPCQuizService{
-  rpc PlayQuiz (stream QuizRequest) returns (stream QuizResponse);
-  rpc QuizScore(UserCredentials) returns (QuizSummaryResponse);
-}
-message UserCredentials{
-  string userName = 1;
-  string token  = 2;
+package org.jfsog.grpc_quiz.v1.quiz;
+/// Mensagens
+message UserCredentials {
+  string user_name = 1;       // Nome de usuário
+  string token = 2;           // Token de autenticação
 }
 message QuizSummaryResponse {
-  int32 totalQuestions = 1; // Total de questões enviadas
-  int32 correctAnswers = 2; // Total de respostas corretas
-  int64 totalPoints = 3;    // Pontos acumulados
+  int32 total_questions = 1;  // Total de questões enviadas
+  int32 correct_answers = 2;  // Total de respostas corretas
+  int64 total_points = 3;     // Pontos acumulados
+  AuthStatus status =4;       // status da autenticação
 }
 message QuizRequest {
-  string userName = 1;
-  int64 questionId = 2;
-  string resposta = 3; // Resposta enviada pelo usuário
-  string token =4;
+  string user_name = 1;       // Nome de usuário
+  int64 question_id = 2;      // ID da questão
+  string answer = 3;          // Resposta enviada pelo usuário
+  string token = 4;           // Token de autenticação
 }
-
 message QuizResponse {
-  int64 questionId = 1;
-  bool feedback = 2; // Resposta correta ou incorreta
-  int32 points = 3;    // Pontos acumulados
+  int64 question_id = 1;      //ID da questão
+  bool is_correct = 2;        //Resposta correta ou incorreta
+  int64 points = 3;           //Pontos acumulados
+  AuthStatus status =4;       //status da autenticação
+}
+// Serviços
+service gRPCQuizService {
+  rpc PlayQuiz(stream QuizRequest) returns (stream QuizResponse); // Serviço para jogar o quiz
+  rpc QuizScore(UserCredentials) returns (QuizSummaryResponse);   // Serviço para obter o resumo do desempenho no quiz
 }
 
-message AuthenticationResponse {
-  AuthStatus status = 1;
-  string token = 2;
-  string message = 3;
-}
-message UserLoginRequest{
-  string name = 1;
-  string password = 2;
-}
-message UserRegisterRequest{
-  string name = 1;
-  string password = 2;
-  UserRole role = 3;
-}
 
-enum UserRole{
-  USER = 0;
-  ADMIN = 1;
-}
-
-enum AuthStatus {
-  SUCCESS = 0;
-  FAILURE = 1;
-}

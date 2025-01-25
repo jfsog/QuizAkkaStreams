@@ -12,7 +12,7 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: true
-  #    show-sql: true
+#    show-sql: true
   data:
     redis:
       host: localhost
@@ -23,18 +23,19 @@ spring:
           max-active: 10
           max-idle: 5
           min-idle: 2
-      connect-timeout: 6000
+      connect-timeout: 0
       url: jdbc:redis://localhost:6379/valkeycachequizdb
       username: valkey_user
       database: 0
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
-server: #  port: 8080
+server:
+  port: 8080
   http2:
     enabled: true
-  ssl:
-    enabled: true
-    key-store: keystore.p12
-    key-store-password: ${SSL_PASSWORD} # Senha do keystore
-    key-store-type: PKCS12  # Tipo do keystore
-    key-alias: myalias  # Alias da chave no keystore
+#  ssl:
+#    enabled: true
+#    key-store: keystore.p12
+#    key-store-password: ${SSL_PASSWORD} # Senha do keystore
+#    key-store-type: PKCS12  # Tipo do keystore
+#    key-alias: myalias  # Alias da chave no keystore
