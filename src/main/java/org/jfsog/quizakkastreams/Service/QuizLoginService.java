@@ -109,8 +109,7 @@ public class QuizLoginService implements gRPCLoginService {
     }
     private AuthenticationResponse createDuplicateUserResponse(UserRegisterRequest request) {
         return AuthenticationResponse.newBuilder()
-                                     .setMessage("Usuário %s já existe! em %s".formatted(request.getUserName(),
-                                             Thread.currentThread().getName()))
+                                     .setMessage("Usuário %s já existe!".formatted(request.getUserName()))
                                      .setStatusValue(FAILURE_VALUE)
                                      .build();
     }
@@ -120,8 +119,7 @@ public class QuizLoginService implements gRPCLoginService {
     }
     private AuthenticationResponse createSuccessRegistrationResponse(Users user) {
         return AuthenticationResponse.newBuilder()
-                                     .setMessage("Usuário %s salvo com sucesso em %s!".formatted(user.getLogin(),
-                                             Thread.currentThread().getName()))
+                                     .setMessage("Usuário %s salvo com sucesso!".formatted(user.getLogin()))
                                      .setToken(tokenService.createUserToken(user))
                                      .setStatusValue(SUCCESS_VALUE)
                                      .build();
