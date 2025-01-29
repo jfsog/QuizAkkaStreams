@@ -23,21 +23,25 @@ public class QuizService implements gRPCQuizService {
         return in.map(quizRequest -> {
             var resBuilder = QuizResponse.newBuilder();
             var user = cacheService.findByLogin(quizRequest.getUserName());
-            if (tokenService.validarToken(quizRequest.getToken(),
-                    "check if user(\"%s\")".formatted(quizRequest.getUserName())) && user != null) {
-                resBuilder.setStatus(AuthStatus.SUCCESS);
-                perguntaRepository.findById(quizRequest.getQuestionId()).ifPresent(question -> {
-                    var isCorrect = question.getResposta().equals(quizRequest.getAnswer());
-                    resBuilder.setQuestionId(question.getId()).setIsCorrect(isCorrect);
-                    if (isCorrect) {
-                        user.setTotalPoints(user.getTotalPoints() + 1);
-                        user.setCorrectAnswers(user.getCorrectAnswers() + 1);
-                    }
-                    user.setTotalQuestions(user.getTotalQuestions() + 1);
-                    resBuilder.setPoints(user.getTotalPoints());
-                    cacheService.SaveUser(user);
-                });
-            } else {
+            try {
+                if (tokenService.validarToken(quizRequest.getToken(),
+                        "check if user(\"%s\")".formatted(quizRequest.getUserName())) && user != null) {
+                    resBuilder.setStatus(AuthStatus.SUCCESS);
+                    perguntaRepository.findById(quizRequest.getQuestionId()).ifPresent(question -> {
+                        var isCorrect = question.getResposta().equals(quizRequest.getAnswer());
+                        resBuilder.setQuestionId(question.getId()).setIsCorrect(isCorrect);
+                        if (isCorrect) {
+                            user.setTotalPoints(user.getTotalPoints() + 1);
+                            user.setCorrectAnswers(user.getCorrectAnswers() + 1);
+                        }
+                        user.setTotalQuestions(user.getTotalQuestions() + 1);
+                        resBuilder.setPoints(user.getTotalPoints());
+                        cacheService.SaveUser(user);
+                    });
+                } else {
+                    resBuilder.setStatus(AuthStatus.FAILURE);
+                }
+            } catch (Exception e) {
                 resBuilder.setStatus(AuthStatus.FAILURE);
             }
             return resBuilder.build();
