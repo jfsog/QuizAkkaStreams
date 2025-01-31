@@ -12,11 +12,11 @@ import org.redisson.api.RMapCache;
 import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.StringCodec;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -45,7 +45,7 @@ public class CacheServiceValkey {
         var token = map.get(user.getLogin());
         if (token == null) {
             token = biscuitTokenService.createUserToken(user);
-            map.put(user.getLogin(), token);
+            map.put(user.getLogin(), token, 30L, TimeUnit.SECONDS);
         }
         return token;
     }
@@ -67,7 +67,6 @@ public class CacheServiceValkey {
             return u;
         });
     }
-
     @PreDestroy
     private void cleanUp() {
         redisson.getKeys().flushall();

@@ -36,13 +36,13 @@ public class BiscuitTokenService {
         }
     }
     public boolean validarToken(@NonNull String b64Token, String... customChecks) {
+        var now = Instant.now().toEpochMilli();
         try {
-            var now = Instant.now().toEpochMilli();
             var b = Biscuit.from_b64url(b64Token, root.public_key())
                            .verify(root.public_key())
                            .authorizer()
                            .add_fact("operation(\"read\")")
-                           .add_check("check if expiration($0), $0 > %s ".formatted(now));
+                           .add_check("check if expiration($0), $0 > %d ".formatted(now));
             for (var s : customChecks)
                 b.add_check(s);
             var code = b.allow().authorize(runLimits);
@@ -54,8 +54,10 @@ public class BiscuitTokenService {
             }
             log.info("Non zero value?: {}", code);
             return true;
-        } catch (Error | NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
-            log.warn(e.getMessage());
+        } catch (Error e) {
+            return false;
+        } catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
+            log.error("Erro ao validar token: {}", b64Token, e);
             return false;
         }
     }
